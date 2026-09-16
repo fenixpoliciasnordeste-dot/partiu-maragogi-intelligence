@@ -55,7 +55,7 @@ Se a pasta já estiver versionada, pule `git init` e o commit inicial. `.env`, c
 
 ## Render
 
-1. Crie PostgreSQL no Render ou use uma instância PostgreSQL compatível e persistente. Selecione conscientemente o plano e a política de backups. O blueprint não provisiona banco pago implicitamente.
+1. O Blueprint provisiona `partiu-maragogi-db` no plano gratuito e conecta a aplicação pela URL interna do Render.
 2. Conecte o repositório GitHub e crie um Blueprint usando `render.yaml` ou um Web Service Node.
 3. Build: `npm ci --include=dev && npm run build`.
 4. Start: `npm start` — executa `prisma migrate deploy` antes de iniciar o Next.js, sem depender de pre-deploy.

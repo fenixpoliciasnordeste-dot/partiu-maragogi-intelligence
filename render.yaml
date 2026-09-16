@@ -13,7 +13,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: partiu-maragogi-db
+          property: connectionString
       - key: APP_URL
         sync: false
       - key: ADMIN_EMAIL
@@ -37,5 +39,10 @@ services:
       - key: APIFY_DAILY_RUN_LIMIT
         value: 6
 # DATABASE_URL accepts Render PostgreSQL or any compatible PostgreSQL 15+ instance.
-# Database plan is selected explicitly when provisioning, to avoid implicit billing.
 # Migrations run at start; no preDeployCommand required.
+
+databases:
+  - name: partiu-maragogi-db
+    databaseName: partiu_maragogi
+    user: partiu_maragogi
+    plan: free
