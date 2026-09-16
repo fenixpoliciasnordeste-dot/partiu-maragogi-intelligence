@@ -1,0 +1,280 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String             @id @default(cuid())
+  email     String             @unique
+  createdAt DateTime           @default(now())
+  filters   SavedFilter[]
+  searches  SearchHistory[]
+  tutorials TutorialProgress[]
+}
+
+model SocialAccount {
+  id              String    @id @default(cuid())
+  platform        String    @unique
+  externalId      String
+  username        String?
+  accessToken     String?
+  refreshToken    String?
+  tokenExpiration DateTime?
+  scopes          String[]  @default([])
+  status          String    @default("NOT_CONFIGURED")
+  lastValidation  DateTime?
+  lastSync        DateTime?
+  lastError       String?
+  updatedAt       DateTime  @updatedAt
+}
+
+// CompetitorProfile and CompetitorPost share SocialProfile and SocialPost.
+// Ownership is explicit through competitorId; metrics use identical semantics.
+model SocialProfile {
+  id           String            @id @default(cuid())
+  platform     String
+  externalId   String
+  name         String
+  username     String
+  avatar       String?
+  url          String?
+  competitorId String?           @unique
+  competitor   Competitor?       @relation(fields: [competitorId], references: [id])
+  lastSync     DateTime?
+  snapshots    ProfileSnapshot[]
+  posts        SocialPost[]
+
+  @@unique([platform, externalId])
+}
+
+model Competitor {
+  id         String         @id @default(cuid())
+  name       String
+  username   String
+  platform   String
+  url        String?
+  category   String?
+  notes      String?
+  status     String         @default("PENDING")
+  lastError  String?
+  archivedAt DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  profile    SocialProfile?
+
+  @@unique([platform, username])
+}
+
+model ProfileSnapshot {
+  id           String        @id @default(cuid())
+  profileId    String
+  profile      SocialProfile @relation(fields: [profileId], references: [id])
+  followers    Float?
+  following    Float?
+  postsCount   Float?
+  views        Float?
+  reach        Float?
+  engagement   Float?
+  platform     String
+  capturedAt   DateTime      @default(now())
+  metricWindow String        @default("lifetime")
+
+  @@index([profileId, capturedAt])
+}
+
+model SocialPost {
+  id                 String          @id @default(cuid())
+  externalId         String
+  profileId          String
+  profile            SocialProfile   @relation(fields: [profileId], references: [id])
+  platform           String
+  caption            String          @default("")
+  thumbnail          String?
+  url                String?
+  format             String
+  duration           Float?
+  publishedAt        DateTime
+  classification     Json?
+  classificationHash String?
+  snapshots          PostSnapshot[]
+  ideas              ContentIdea[]
+  sources            InsightSource[]
+
+  @@unique([platform, externalId])
+  @@index([profileId, publishedAt])
+}
+
+model PostSnapshot {
+  id         String     @id @default(cuid())
+  postId     String
+  post       SocialPost @relation(fields: [postId], references: [id])
+  likes      Float?
+  comments   Float?
+  views      Float?
+  reach      Float?
+  shares     Float?
+  saves      Float?
+  audience   Float?
+  capturedAt DateTime   @default(now())
+
+  @@index([postId, capturedAt])
+}
+
+model AIAnalysis {
+  id        String          @id @default(cuid())
+  kind      String
+  subjectId String
+  inputHash String
+  result    Json
+  model     String
+  createdAt DateTime        @default(now())
+  sources   InsightSource[]
+  ideas     ContentIdea[]
+
+  @@index([kind, subjectId, inputHash])
+}
+
+model ContentIdea {
+  id           String          @id @default(cuid())
+  title        String
+  titleKey     String          @unique
+  content      Json
+  status       String          @default("Nova")
+  source       String          @default("Gemini")
+  competitorId String?
+  aiAnalysisId String?
+  analysis     AIAnalysis?     @relation(fields: [aiAnalysisId], references: [id])
+  postId       String?
+  post         SocialPost?     @relation(fields: [postId], references: [id])
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  scripts      ContentScript[]
+}
+
+model ContentScript {
+  id        String      @id @default(cuid())
+  ideaId    String
+  idea      ContentIdea @relation(fields: [ideaId], references: [id])
+  kind      String
+  content   Json
+  createdAt DateTime    @default(now())
+}
+
+model Integration {
+  provider    String    @id
+  status      String    @default("NOT_CONFIGURED")
+  lastCall    DateTime?
+  lastSuccess DateTime?
+  lastError   String?
+}
+
+model SyncJob {
+  id         String    @id @default(cuid())
+  target     String
+  status     String    @default("QUEUED")
+  items      Int       @default(0)
+  progress   String?
+  error      String?
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([status, createdAt])
+}
+
+model APIRequestLog {
+  id            String   @id @default(cuid())
+  provider      String
+  endpoint      String
+  operation     String
+  status        String
+  timestamp     DateTime @default(now())
+  responseTime  Int?
+  estimatedCost Float?
+  reservedCost  Float    @default(0)
+  tokensInput   Int?
+  tokensOutput  Int?
+  errorCode     String?
+
+  @@index([provider, timestamp])
+}
+
+model SavedFilter {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  name        String
+  description String?
+  config      Json
+  createdAt   DateTime @default(now())
+}
+
+model SearchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  query     String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model TutorialProgress {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  page      String
+  status    String
+  step      Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, page])
+}
+
+model AIUsageLimit {
+  id              String @id @default("global")
+  dailyUSD        Float  @default(0)
+  monthlyUSD      Float  @default(0)
+  dailyRequests   Int    @default(0)
+  monthlyRequests Int    @default(0)
+  inputRate       Float  @default(0)
+  outputRate      Float  @default(0)
+  alertPercent    Int    @default(75)
+}
+
+model InsightSource {
+  id         String     @id @default(cuid())
+  analysisId String
+  analysis   AIAnalysis @relation(fields: [analysisId], references: [id])
+  postId     String
+  post       SocialPost @relation(fields: [postId], references: [id])
+  metrics    Json
+  capturedAt DateTime
+
+  @@unique([analysisId, postId])
+}
+
+model RateLimit {
+  key     String   @id
+  count   Int      @default(1)
+  resetAt DateTime
+}
+
+model FinancialEntry {
+  id          String   @id @default(cuid())
+  type        String
+  description String
+  category    String
+  amount      Float
+  occurredAt  DateTime
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([occurredAt])
+  @@index([type, occurredAt])
+}
